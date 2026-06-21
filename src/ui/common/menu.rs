@@ -52,7 +52,7 @@ where
       let frame = Rect::new(x + 2, item_y, width - 4, 1);
       let option_text = self.get_option(theme, name, index);
 
-      style::render_paragraph(f, theme, frame, Paragraph::new(option_text), Themed::Container);
+      style::render_paragraph(f, theme, frame, Paragraph::new(option_text), Themed::MenuItem);
     }
 
     Ok((1, 1))
@@ -63,9 +63,9 @@ where
     S: Into<String>,
   {
     if self.selected == index {
-      Span::styled(name.into(), theme.of(&[Themed::Container]).add_modifier(Modifier::REVERSED))
+      Span::styled(name.into(), theme.of(&[Themed::MenuItem]).add_modifier(Modifier::REVERSED))
     } else {
-      Span::from(name.into())
+      Span::styled(name.into(), theme.of(&[Themed::MenuItem, Themed::Text]))
     }
   }
 }

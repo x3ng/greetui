@@ -9,12 +9,6 @@ use tui::{
 
 use crate::ui::Frame;
 
-#[derive(Clone)]
-enum Component {
-  Bg,
-  Fg,
-}
-
 /// Parse a color string into a ratatui Color.
 pub fn parse_color(color: &str) -> Option<Color> {
   match color {
@@ -61,6 +55,7 @@ pub fn contrast_fg(bg: Color) -> Color {
 
 pub enum Themed {
   Container,
+  MenuItem,
   Time,
   Text,
   Border,
@@ -74,95 +69,117 @@ pub enum Themed {
 
 #[derive(Default)]
 pub struct Theme {
-  container: Option<(Component, Color)>,
-  time: Option<(Component, Color)>,
-  text: Option<(Component, Color)>,
-  border: Option<(Component, Color)>,
-  title: Option<(Component, Color)>,
-  greet: Option<(Component, Color)>,
-  prompt: Option<(Component, Color)>,
-  input: Option<(Component, Color)>,
-  action: Option<(Component, Color)>,
-  button: Option<(Component, Color)>,
+  container: Style,
+  menu_item: Style,
+  time: Style,
+  text: Style,
+  border: Style,
+  title: Style,
+  greet: Style,
+  prompt: Style,
+  input: Style,
+  action: Style,
+  button: Style,
 }
 
 impl Theme {
   pub fn set_container_bg(&mut self, color: Color) {
-    if self.container.is_none() {
-      self.container = Some((Component::Bg, color));
+    if self.container.bg.is_none() {
+      self.container.bg = Some(color);
+    }
+    if self.menu_item.bg.is_none() {
+      self.menu_item.bg = Some(color);
     }
   }
 
   pub fn set_text_fg(&mut self, color: Color) {
-    for field in [&mut self.text, &mut self.time, &mut self.greet, &mut self.prompt, &mut self.input, &mut self.action, &mut self.button, &mut self.border, &mut self.title] {
-      if field.is_none() {
-        *field = Some((Component::Fg, color));
+    for field in [&mut self.text, &mut self.time, &mut self.greet, &mut self.prompt, &mut self.input, &mut self.action, &mut self.button, &mut self.border, &mut self.title, &mut self.menu_item] {
+      if field.fg.is_none() {
+        field.fg = Some(color);
       }
     }
   }
 
   pub fn container_bg(&self) -> Option<Color> {
-    self.container.as_ref().map(|(_, c)| *c)
+    self.container.bg
   }
 
   pub fn parse(spec: &str) -> Theme {
-    use Component::*;
-
     let directives = spec.split(';').filter_map(|directive| directive.split_once('='));
-    let mut style = Theme::default();
+    let mut theme = Theme::default();
 
     for (key, value) in directives {
       if let Ok(color) = Color::from_str(value) {
         match key {
-          "container" => style.container = Some((Bg, color)),
-          "time" => style.time = Some((Fg, color)),
-          "text" => style.text = Some((Fg, color)),
-          "border" => style.border = Some((Fg, color)),
-          "title" => style.title = Some((Fg, color)),
-          "greet" => style.greet = Some((Fg, color)),
-          "prompt" => style.prompt = Some((Fg, color)),
-          "input" => style.input = Some((Fg, color)),
-          "action" => style.action = Some((Fg, color)),
-          "button" => style.button = Some((Fg, color)),
-          _ => {}
+          // Shorthand: "container=blue" sets bg (backward compat)
+          "container" => { theme.container.bg = Some(color); }
+          "time"      => { theme.time.fg = Some(color); }
+          "text"      => { theme.text.fg = Some(color); }
+          "border"    => { theme.border.fg = Some(color); }
+          "title"     => { theme.title.fg = Some(color); }
+          "greet"     => { theme.greet.fg = Some(color); }
+          "prompt"    => { theme.prompt.fg = Some(color); }
+          "input"     => { theme.input.fg = Some(color); }
+          "action"    => { theme.action.fg = Some(color); }
+          "button"    => { theme.button.fg = Some(color); }
+          "menu_item" => { theme.menu_item.bg = Some(color); }
+          // Dot notation: "container.bg=blue;container.fg=white"
+          _ => {
+            if let Some((comp, part)) = key.split_once('.') {
+              let target = match comp {
+                "container" => Some(&mut theme.container),
+                "menu_item" => Some(&mut theme.menu_item),
+                "time"      => Some(&mut theme.time),
+                "text"      => Some(&mut theme.text),
+                "border"    => Some(&mut theme.border),
+                "title"     => Some(&mut theme.title),
+                "greet"     => Some(&mut theme.greet),
+                "prompt"    => Some(&mut theme.prompt),
+                "input"     => Some(&mut theme.input),
+                "action"    => Some(&mut theme.action),
+                "button"    => Some(&mut theme.button),
+                _ => None,
+              };
+              if let Some(style) = target {
+                match part {
+                  "fg" => { style.fg = Some(color); }
+                  "bg" => { style.bg = Some(color); }
+                  _ => {}
+                }
+              }
+            }
+          }
         }
       }
     }
 
-    if style.time.is_none() { style.time.clone_from(&style.text); }
-    if style.greet.is_none() { style.greet.clone_from(&style.text); }
-    if style.title.is_none() { style.title.clone_from(&style.border); }
-    if style.button.is_none() { style.button.clone_from(&style.action); }
+    // Inherit from base styles
+    if theme.time.fg.is_none() { theme.time = theme.text; }
+    if theme.greet.fg.is_none() { theme.greet = theme.text; }
+    if theme.title.fg.is_none() { theme.title = theme.border; }
+    if theme.button.fg.is_none() { theme.button = theme.action; }
+    if theme.menu_item.bg.is_none() { theme.menu_item.bg = theme.container.bg; }
 
-    style
+    theme
   }
 
   pub fn of(&self, targets: &[Themed]) -> Style {
-    targets.iter().fold(Style::default(), |style, target| self.apply(style, target))
+    targets.iter().fold(Style::default(), |style, target| style.patch(self.get(target)))
   }
 
-  fn apply(&self, style: Style, target: &Themed) -> Style {
-    use Themed::*;
-
-    let color = match target {
-      Container => &self.container,
-      Time => &self.time,
-      Text => &self.text,
-      Border => &self.border,
-      Title => &self.title,
-      Greet => &self.greet,
-      Prompt => &self.prompt,
-      Input => &self.input,
-      Action => &self.action,
-      ActionButton => &self.button,
-    };
-
-    match color {
-      Some((component, color)) => match component {
-        Component::Fg => style.fg(*color),
-        Component::Bg => style.bg(*color),
-      },
-      None => style,
+  fn get(&self, target: &Themed) -> Style {
+    match target {
+      Themed::Container   => self.container,
+      Themed::MenuItem    => self.menu_item,
+      Themed::Time        => self.time,
+      Themed::Text        => self.text,
+      Themed::Border      => self.border,
+      Themed::Title       => self.title,
+      Themed::Greet       => self.greet,
+      Themed::Prompt      => self.prompt,
+      Themed::Input       => self.input,
+      Themed::Action      => self.action,
+      Themed::ActionButton => self.button,
     }
   }
 }
