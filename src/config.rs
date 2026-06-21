@@ -261,11 +261,11 @@ impl Config {
     config
   }
 
-  pub fn greet_align_parsed(&self) -> crate::greeter::GreetAlign {
+  pub fn greet_align_parsed(&self) -> crate::GreetAlign {
     match self.greet_align.as_str() {
-      "left" => crate::greeter::GreetAlign::Left,
-      "right" => crate::greeter::GreetAlign::Right,
-      _ => crate::greeter::GreetAlign::Center,
+      "left" => crate::GreetAlign::Left,
+      "right" => crate::GreetAlign::Right,
+      _ => crate::GreetAlign::Center,
     }
   }
 }

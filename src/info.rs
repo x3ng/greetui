@@ -5,7 +5,6 @@ use std::{
   fs::{self, File},
   io::{self, BufRead, BufReader},
   path::{Path, PathBuf},
-  process::Command,
 };
 
 use chrono::Local;
@@ -272,7 +271,7 @@ pub fn get_sessions(app: &App) -> Result<Vec<Session>, Box<dyn Error>> {
     tracing::info!("reading {:?} sessions from '{}'", session_type, path.display());
 
     if let Ok(entries) = fs::read_dir(path) {
-      for entry in entries.flat_map(|e| e) {
+      for entry in entries.flatten() {
         if let Ok(Some(session)) = load_desktop_file(entry.path(), *session_type) {
           // Deduplicate by (slug, command) to avoid duplicates on NixOS
           // where XDG_DATA_DIRS can have overlapping paths
@@ -328,16 +327,6 @@ where
     path: Some(path.as_ref().into()),
     xdg_desktop_names,
   }))
-}
-
-pub fn capslock_status() -> bool {
-  let mut command = Command::new("kbdinfo");
-  command.args(["gkbled", "capslock"]);
-
-  match command.output() {
-    Ok(output) => output.status.code() == Some(0),
-    Err(_) => false,
-  }
 }
 
 #[cfg(feature = "nsswrapper")]

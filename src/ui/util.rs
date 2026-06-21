@@ -1,3 +1,5 @@
+use std::process::Command;
+
 use ansi_to_tui::IntoText;
 use tui::{
   prelude::Rect,
@@ -120,5 +122,16 @@ pub fn get_message_height(app: &App, padding: u16, fallback: u16) -> (Option<Par
     (Some(paragraph), height as u16 + padding)
   } else {
     (None, fallback)
+  }
+}
+
+/// Check if Caps Lock is currently active.
+pub fn capslock_status() -> bool {
+  let mut command = Command::new("kbdinfo");
+  command.args(["gkbled", "capslock"]);
+
+  match command.output() {
+    Ok(output) => output.status.code() == Some(0),
+    Err(_) => false,
   }
 }

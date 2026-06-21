@@ -312,7 +312,7 @@ async fn insert_key(app: &mut App, c: char) {
   let left = value.chars().take(index);
   let right = value.chars().skip(index);
 
-  let value = left.chain(vec![c].into_iter()).chain(right).collect();
+  let value = left.chain(vec![c]).chain(right).collect();
   let mode = app.auth.mode;
 
   match mode {

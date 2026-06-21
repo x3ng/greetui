@@ -5,6 +5,7 @@ pub mod power;
 mod processing;
 mod prompt;
 pub mod sessions;
+pub mod terminal;
 pub mod users;
 mod util;
 
@@ -27,7 +28,8 @@ use tui::{
 };
 use util::buttonize;
 
-use crate::{info::capslock_status, ui::util::should_hide_cursor, App, Mode};
+use crate::{App, Mode};
+use crate::ui::util::{capslock_status, should_hide_cursor};
 
 use self::common::style::{Theme, Themed};
 pub use self::i18n::MESSAGES;
