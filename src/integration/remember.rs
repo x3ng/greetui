@@ -16,7 +16,7 @@ async fn remember_username() {
   let mut runner = IntegrationRunner::new(
     opts,
     Some(|app| {
-      app.ui.remember = true;
+      app.remember.username = true;
       app.auth.username = MaskedString::from("apognu".to_string(), None);
     }),
   )

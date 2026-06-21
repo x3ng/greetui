@@ -1,6 +1,6 @@
 use zeroize::Zeroize;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct MaskedString {
   pub value: String,
   pub mask: Option<String>,

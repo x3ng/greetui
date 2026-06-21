@@ -8,7 +8,7 @@ use crate::App;
 use super::common::menu::MenuItem;
 
 // SessionSource models the selected session and where it comes from.
-#[derive(SmartDefault)]
+#[derive(SmartDefault, Debug, Clone)]
 pub enum SessionSource {
   #[default]
   None,

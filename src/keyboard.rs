@@ -5,7 +5,6 @@ use greetd_ipc::Request;
 use tokio::sync::RwLock;
 
 use crate::{
-  info::{delete_last_command, delete_last_session, get_last_user_command, get_last_user_session, write_last_command, write_last_session_path},
   ipc::Ipc,
   power::{power, PowerOption},
   ui::{
@@ -236,10 +235,7 @@ pub async fn handle(app: Arc<RwLock<App>>, input: KeyEvent, ipc: Ipc) -> Result<
         app.sessions.menu.selected = 0;
         app.sessions.source = SessionSource::Command(app.auth.buffer.clone());
 
-        if app.ui.remember_session {
-          write_last_command(&app.auth.buffer);
-          delete_last_session();
-        }
+        app.remember.save_on_session_select(&app);
 
         app.auth.buffer = app.auth.previous_buffer.take().unwrap_or_default();
         app.auth.mode = app.auth.previous_mode;
@@ -260,15 +256,9 @@ pub async fn handle(app: Arc<RwLock<App>>, input: KeyEvent, ipc: Ipc) -> Result<
       Mode::Sessions => {
         let session = app.sessions.menu.options.get(app.sessions.menu.selected).cloned();
 
-        if let Some(Session { path, .. }) = session {
-          if app.ui.remember_session {
-            if let Some(ref path) = path {
-              write_last_session_path(path);
-              delete_last_command();
-            }
-          }
-
+        if let Some(Session { .. }) = session {
           app.sessions.source = SessionSource::Session(app.sessions.menu.selected);
+          app.remember.save_on_session_select(&app);
         }
 
         app.auth.mode = app.auth.previous_mode;
@@ -372,22 +362,7 @@ async fn validate_username(app: &mut App, ipc: &Ipc) {
     .await;
   app.auth.buffer = String::new();
 
-  if app.ui.remember_user_session {
-    if let Ok(last_session) = get_last_user_session(&app.auth.username.value) {
-      if let Some(last_session) = Session::from_path(app, last_session).cloned() {
-        tracing::info!("remembered user session is {}", last_session.name);
-
-        app.sessions.menu.selected = app.sessions.menu.options.iter().position(|sess| sess.path == last_session.path).unwrap_or(0);
-        app.sessions.source = SessionSource::Session(app.sessions.menu.selected);
-      }
-    }
-
-    if let Ok(command) = get_last_user_command(&app.auth.username.value) {
-      tracing::info!("remembered user command is {}", command);
-
-      app.sessions.source = SessionSource::Command(command);
-    }
-  }
+  app.remember.restore_user_session(&mut app.auth, &mut app.sessions);
 }
 
 #[cfg(test)]
@@ -400,7 +375,7 @@ mod test {
   use super::handle;
   use crate::{
     ipc::Ipc,
-    ui::{common::masked::MaskedString, sessions::SessionSource},
+    ui::common::masked::MaskedString,
     App, Mode,
   };
 

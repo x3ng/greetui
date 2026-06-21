@@ -8,9 +8,8 @@ use tokio::sync::{
 
 use crate::{
   event::Event,
-  info::{delete_last_user_command, delete_last_user_session, write_last_user_command, write_last_user_session, write_last_username},
   macros::SafeDebug,
-  ui::sessions::{Session, SessionSource, SessionType},
+  ui::sessions::{Session, SessionType},
   AuthStatus, App, Mode,
 };
 
@@ -118,33 +117,7 @@ impl Ipc {
         if app.done {
           tracing::info!("greetd acknowledged session start, exiting");
 
-          if app.ui.remember {
-            tracing::info!("caching last successful username");
-
-            write_last_username(&app.auth.username);
-
-            if app.ui.remember_user_session {
-              match app.sessions.source {
-                SessionSource::Command(ref command) => {
-                  tracing::info!("caching last user command: {command}");
-
-                  write_last_user_command(&app.auth.username.value, command);
-                  delete_last_user_session(&app.auth.username.value);
-                }
-
-                SessionSource::Session(index) => {
-                  if let Some(Session { path: Some(session_path), .. }) = app.sessions.menu.options.get(index) {
-                    tracing::info!("caching last user session: {session_path:?}");
-
-                    write_last_user_session(&app.auth.username.value, session_path);
-                    delete_last_user_command(&app.auth.username.value);
-                  }
-                }
-
-                _ => {}
-              }
-            }
-          }
+          app.remember.save_on_login(&app);
 
           if let Some(ref sender) = app.events {
             let _ = sender.send(Event::Exit(AuthStatus::Success)).await;

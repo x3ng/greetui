@@ -11,6 +11,7 @@ mod ipc;
 mod keyboard;
 mod numlock;
 mod power;
+mod remember;
 mod state;
 mod ui;
 mod vt;
@@ -77,7 +78,7 @@ where
 
   let ipc = Ipc::new();
 
-  if app.ui.remember && !app.auth.username.value.is_empty() {
+  if app.remember.username && !app.auth.username.value.is_empty() {
     app.working = true;
 
     tracing::info!("creating remembered session for user {}", app.auth.username.value);

@@ -8,6 +8,7 @@ use zeroize::Zeroize;
 use crate::config::Config;
 use crate::event::Event;
 use crate::power::PowerOption;
+use crate::remember::Remember;
 use crate::ui::common::masked::MaskedString;
 use crate::ui::common::menu::Menu;
 use crate::ui::common::style::Theme;
@@ -24,6 +25,7 @@ pub struct App {
   pub power: PowerState,
   pub theme: Theme,
   pub ui: UiState,
+  pub remember: Remember,
 
   pub socket: String,
   pub stream: Option<Arc<RwLock<UnixStream>>>,
@@ -90,9 +92,6 @@ pub struct UiState {
   pub greeting: Option<String>,
   pub ascii_art: Option<String>,
   pub message: Option<String>,
-  pub remember: bool,
-  pub remember_session: bool,
-  pub remember_user_session: bool,
 }
 
 #[derive(SmartDefault, Debug, Copy, Clone, PartialEq)]
@@ -204,10 +203,8 @@ impl App {
         greeting: None,
         ascii_art,
         message: None,
-        remember: false,
-        remember_session: false,
-        remember_user_session: false,
       },
+      remember: Remember::new(false, false, false),
       socket,
       stream: None,
       events: Some(events),
@@ -250,7 +247,7 @@ impl App {
     }
 
     // Restore remembered state
-    app.restore_remembered();
+    app.remember.restore(&mut app.auth, &mut app.sessions);
 
     app
   }
@@ -267,9 +264,7 @@ impl App {
       self.ui.greeting = cfg.greeting.clone();
     }
 
-    self.ui.remember = cfg.remember;
-    self.ui.remember_session = cfg.remember_session;
-    self.ui.remember_user_session = cfg.remember_user_session;
+    self.remember = Remember::new(cfg.remember, cfg.remember_session, cfg.remember_user_session);
 
     // Secret display
     if cfg.asterisks {
@@ -338,40 +333,6 @@ impl App {
 
     // Power setsid
     self.power.setsid = true; // default on, no --power-no-setsid in new CLI
-  }
-
-  fn restore_remembered(&mut self) {
-    if self.ui.remember {
-      if let Some(username) = crate::info::get_last_user_username() {
-        self.auth.username = MaskedString::from(username, crate::info::get_last_user_name());
-
-        if self.ui.remember_user_session {
-          if let Ok(command) = crate::info::get_last_user_command(self.auth.username.get()) {
-            self.sessions.source = SessionSource::Command(command);
-          }
-
-          if let Ok(ref session_path) = crate::info::get_last_user_session(self.auth.username.get()) {
-            if let Some(index) = self.sessions.menu.options.iter().position(|s| s.path.as_deref() == Some(session_path)) {
-              self.sessions.menu.selected = index;
-              self.sessions.source = SessionSource::Session(index);
-            }
-          }
-        }
-      }
-    }
-
-    if self.ui.remember_session {
-      if let Ok(command) = crate::info::get_last_command() {
-        self.sessions.source = SessionSource::Command(command.trim().to_string());
-      }
-
-      if let Ok(ref session_path) = crate::info::get_last_session_path() {
-        if let Some(index) = self.sessions.menu.options.iter().position(|s| s.path.as_deref() == Some(session_path)) {
-          self.sessions.menu.selected = index;
-          self.sessions.source = SessionSource::Session(index);
-        }
-      }
-    }
   }
 
   pub fn scrub(&mut self, scrub_message: bool, soft: bool) {
@@ -487,10 +448,8 @@ impl Default for App {
         greeting: None,
         ascii_art: None,
         message: None,
-        remember: false,
-        remember_session: false,
-        remember_user_session: false,
       },
+      remember: Remember::new(false, false, false),
       socket: String::new(),
       stream: None,
       events: None,
