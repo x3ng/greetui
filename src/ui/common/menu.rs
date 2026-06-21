@@ -4,18 +4,15 @@ use tui::{
   prelude::Rect,
   style::Modifier,
   text::Span,
-  widgets::{Block, BorderType, Borders, Paragraph},
+  widgets::Paragraph,
 };
 
 use crate::{
-  ui::{
-    util::{get_rect_bounds, titleize},
-    Frame,
-  },
+  ui::{util::get_rect_bounds, Frame},
   App,
 };
 
-use super::style::{Theme, Themed};
+use super::style::{self, Theme, Themed};
 
 pub trait MenuItem {
   fn format(&self) -> Cow<'_, str>;
@@ -37,38 +34,26 @@ where
 {
   pub fn draw(&self, app: &App, f: &mut Frame) -> Result<(u16, u16), Box<dyn Error>> {
     let theme = &app.theme;
-
     let size = f.size();
     let (x, y, width, height) = get_rect_bounds(app, size, self.options.len());
 
     let container = Rect::new(x, y, width, height);
     let container_padding = app.config.container_padding;
 
-    let title = Span::from(titleize(&self.title));
-    let block = Block::default()
-      .title(title)
-      .title_style(theme.of(&[Themed::Title]))
-      .style(theme.of(&[Themed::Container]))
-      .borders(Borders::ALL)
-      .border_type(BorderType::Plain)
-      .border_style(theme.of(&[Themed::Border]));
+    // Container
+    style::render_container(f, theme, container, &self.title);
 
-    // Render menu items inside the container, after the top border
+    // Menu items
     for (index, option) in self.options.iter().enumerate() {
       let name = option.format();
       let name = format!("{:1$}", name, app.config.width as usize - 4);
 
-      // Position items within the frame (inside the border and padding)
       let item_y = y + container_padding + index as u16;
       let frame = Rect::new(x + 2, item_y, width - 4, 1);
       let option_text = self.get_option(theme, name, index);
-      let option = Paragraph::new(option_text).style(theme.of(&[Themed::Container]));
 
-      f.render_widget(option, frame);
+      style::render_paragraph(f, theme, frame, Paragraph::new(option_text), Themed::Container);
     }
-
-    // Render the border on top (so it paints over any overflow)
-    f.render_widget(block, container);
 
     Ok((1, 1))
   }

@@ -1,9 +1,9 @@
 use std::error::Error;
 
 use tui::{
-  layout::{Alignment, Constraint, Direction, Layout, Rect},
+  layout::{Constraint, Direction, Layout, Rect},
   text::Span,
-  widgets::{Block, BorderType, Borders, Paragraph},
+  widgets::{Block, BorderType, Borders},
 };
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
   App,
 };
 
-use super::common::style::Themed;
+use super::common::style::{self, Themed};
 
 pub fn draw(app: &App, f: &mut Frame) -> Result<(u16, u16), Box<dyn Error>> {
   let theme = &app.theme;
@@ -29,12 +29,9 @@ pub fn draw(app: &App, f: &mut Frame) -> Result<(u16, u16), Box<dyn Error>> {
   let block = Block::default().borders(Borders::ALL).border_type(BorderType::Plain);
 
   let constraints = [Constraint::Length(1)];
-
   let chunks = Layout::default().direction(Direction::Vertical).constraints(constraints.as_ref()).split(frame);
-  let text = Span::from(fl!("wait"));
-  let paragraph = Paragraph::new(text).alignment(Alignment::Center).style(theme.of(&[Themed::Prompt]));
 
-  f.render_widget(paragraph, chunks[0]);
+  style::render_span(f, theme, chunks[0], Span::from(fl!("wait")), Themed::Prompt);
   f.render_widget(block, container);
 
   Ok((1, 1))

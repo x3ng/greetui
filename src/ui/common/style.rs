@@ -1,6 +1,13 @@
 use std::str::FromStr;
 
-use tui::style::{Color, Style};
+use tui::{
+  layout::Rect,
+  style::{Color, Style},
+  text::{Line, Span},
+  widgets::{Block, Borders, Paragraph},
+};
+
+use crate::ui::Frame;
 
 #[derive(Clone)]
 enum Component {
@@ -9,10 +16,6 @@ enum Component {
 }
 
 /// Parse a color string into a ratatui Color.
-/// Supports:
-///   - "0".."255" — ANSI 256 color code
-///   - "#RRGGBB" — true color
-///   - Named: "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"
 pub fn parse_color(color: &str) -> Option<Color> {
   match color {
     "black" => Some(Color::Black),
@@ -37,12 +40,10 @@ pub fn parse_color(color: &str) -> Option<Color> {
 }
 
 /// Derive a contrasting foreground color for a given background.
-/// Dark backgrounds get white text, light backgrounds get black text.
 pub fn contrast_fg(bg: Color) -> Color {
   let (r, g, b) = match bg {
     Color::Rgb(r, g, b) => (r, g, b),
     Color::Indexed(n) => {
-      // Approximate indexed colors as dark (< 128) or light (>= 128)
       return if n < 8 || (16..52).contains(&n) || (88..128).contains(&n) || (160..232).contains(&n) {
         Color::White
       } else {
@@ -54,13 +55,8 @@ pub fn contrast_fg(bg: Color) -> Color {
     _ => return Color::White,
   };
 
-  // Perceived brightness (ITU-R BT.601)
   let brightness = (r as f64 * 0.299) + (g as f64 * 0.587) + (b as f64 * 0.114);
-  if brightness > 128.0 {
-    Color::Black
-  } else {
-    Color::White
-  }
+  if brightness > 128.0 { Color::Black } else { Color::White }
 }
 
 pub enum Themed {
@@ -91,14 +87,12 @@ pub struct Theme {
 }
 
 impl Theme {
-  /// Set the container background color if not already set by --theme.
   pub fn set_container_bg(&mut self, color: Color) {
     if self.container.is_none() {
       self.container = Some((Component::Bg, color));
     }
   }
 
-  /// Set the default foreground for text components if not already set by --theme.
   pub fn set_text_fg(&mut self, color: Color) {
     for field in [&mut self.text, &mut self.time, &mut self.greet, &mut self.prompt, &mut self.input, &mut self.action, &mut self.button, &mut self.border, &mut self.title] {
       if field.is_none() {
@@ -107,7 +101,6 @@ impl Theme {
     }
   }
 
-  /// Get the container background color, if set.
   pub fn container_bg(&self) -> Option<Color> {
     self.container.as_ref().map(|(_, c)| *c)
   }
@@ -136,18 +129,10 @@ impl Theme {
       }
     }
 
-    if style.time.is_none() {
-      style.time.clone_from(&style.text);
-    }
-    if style.greet.is_none() {
-      style.greet.clone_from(&style.text);
-    }
-    if style.title.is_none() {
-      style.title.clone_from(&style.border);
-    }
-    if style.button.is_none() {
-      style.button.clone_from(&style.action);
-    }
+    if style.time.is_none() { style.time.clone_from(&style.text); }
+    if style.greet.is_none() { style.greet.clone_from(&style.text); }
+    if style.title.is_none() { style.title.clone_from(&style.border); }
+    if style.button.is_none() { style.button.clone_from(&style.action); }
 
     style
   }
@@ -177,8 +162,42 @@ impl Theme {
         Component::Fg => style.fg(*color),
         Component::Bg => style.bg(*color),
       },
-
       None => style,
     }
   }
+}
+
+// -- Themed rendering helpers --
+// These centralize style application so individual draw functions
+// don't need to manually call theme.of(&[...]) on every widget.
+
+/// Render a Paragraph with the themed style for the given component.
+pub fn render_paragraph(f: &mut Frame, theme: &Theme, area: Rect, paragraph: Paragraph, component: Themed) {
+  f.render_widget(paragraph.style(theme.of(&[component])), area);
+}
+
+/// Render a Span as a single-line Paragraph with the themed style.
+pub fn render_span(f: &mut Frame, theme: &Theme, area: Rect, span: Span, component: Themed) {
+  f.render_widget(Paragraph::new(span).style(theme.of(&[component])), area);
+}
+
+/// Render a Line as a single-line Paragraph with the themed style.
+pub fn render_line(f: &mut Frame, theme: &Theme, area: Rect, line: Line, component: Themed) {
+  f.render_widget(Paragraph::new(line).style(theme.of(&[component])), area);
+}
+
+/// Render a full-screen background block with the container theme.
+pub fn render_background(f: &mut Frame, theme: &Theme, area: Rect) {
+  f.render_widget(Block::default().style(theme.of(&[Themed::Container])), area);
+}
+
+/// Render a standard container block with border, title, and themed styles.
+pub fn render_container(f: &mut Frame, theme: &Theme, area: Rect, title: &str) {
+  let block = Block::default()
+    .title(format!(" {title} "))
+    .title_style(theme.of(&[Themed::Title]))
+    .style(theme.of(&[Themed::Container]))
+    .borders(Borders::ALL)
+    .border_style(theme.of(&[Themed::Border]));
+  f.render_widget(block, area);
 }

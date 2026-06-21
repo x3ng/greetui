@@ -23,7 +23,7 @@ use tui::{
   layout::{Alignment, Constraint, Direction, Layout},
   style::Modifier,
   text::{Line, Span},
-  widgets::{Block, Paragraph},
+  widgets::Paragraph,
   Frame as CrosstermFrame, Terminal,
 };
 use util::buttonize;
@@ -31,7 +31,7 @@ use util::buttonize;
 use crate::{App, Mode};
 use crate::ui::util::{capslock_status, should_hide_cursor};
 
-use self::common::style::{Theme, Themed};
+use self::common::style::{self, Theme, Themed};
 pub use self::i18n::MESSAGES;
 
 const TITLEBAR_INDEX: usize = 1;
@@ -60,30 +60,28 @@ where
 
     let size = f.size();
 
-    // Full-screen background — ensures the entire terminal uses the theme's
-    // background color, not just the container area.
-    let bg_block = Block::default().style(theme.of(&[Themed::Container]));
-    f.render_widget(bg_block, size);
+    // Full-screen background
+    style::render_background(f, theme, size);
+
     let chunks = Layout::default()
       .constraints(
         [
-          Constraint::Length(app.config.window_padding), // Top vertical padding
-          Constraint::Length(1),                         // Date and time
-          Constraint::Min(1),                            // Main area
-          Constraint::Length(1),                         // Status line
-          Constraint::Length(app.config.window_padding), // Bottom vertical padding
+          Constraint::Length(app.config.window_padding),
+          Constraint::Length(1),
+          Constraint::Min(1),
+          Constraint::Length(1),
+          Constraint::Length(app.config.window_padding),
         ]
         .as_ref(),
       )
       .split(size);
 
+    // Time
     if app.ui.time {
-      let time_text = Span::from(get_time(&app));
-      let time = Paragraph::new(time_text).alignment(Alignment::Center).style(theme.of(&[Themed::Time]));
-
-      f.render_widget(time, chunks[TITLEBAR_INDEX]);
+      style::render_span(f, theme, chunks[TITLEBAR_INDEX], Span::from(get_time(&app)), Themed::Time);
     }
 
+    // Status bar
     let status_block_size_right = 1 + app.config.window_padding + fl!("status_caps").chars().count() as u16;
     let status_block_size_left = (size.width - app.config.window_padding) - status_block_size_right;
 
@@ -123,17 +121,15 @@ where
       status_label(theme, session_source_label),
       status_value(&app, theme, Button::Other, session_source),
     ]);
-    let status_left = Paragraph::new(status_left_text);
-
-    f.render_widget(status_left, status_chunks[STATUSBAR_LEFT_INDEX]);
+    style::render_line(f, theme, status_chunks[STATUSBAR_LEFT_INDEX], status_left_text, Themed::Action);
 
     if capslock_status() {
       let status_right_text = status_label(theme, fl!("status_caps"));
-      let status_right = Paragraph::new(status_right_text).alignment(Alignment::Right);
-
-      f.render_widget(status_right, status_chunks[STATUSBAR_RIGHT_INDEX]);
+      let style = theme.of(&[Themed::ActionButton]).add_modifier(Modifier::REVERSED);
+      f.render_widget(Paragraph::new(status_right_text).style(style).alignment(Alignment::Right), status_chunks[STATUSBAR_RIGHT_INDEX]);
     }
 
+    // Sub-pages
     let cursor = match app.auth.mode {
       Mode::Command => self::command::draw(&mut app, f).ok(),
       Mode::Sessions => app.sessions.menu.draw(&app, f).ok(),
