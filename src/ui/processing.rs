@@ -11,7 +11,10 @@ use crate::{
   App,
 };
 
+use super::common::style::Themed;
+
 pub fn draw(app: &App, f: &mut Frame) -> Result<(u16, u16), Box<dyn Error>> {
+  let theme = &app.theme;
   let size = f.size();
 
   let width = app.config.width;
@@ -29,7 +32,7 @@ pub fn draw(app: &App, f: &mut Frame) -> Result<(u16, u16), Box<dyn Error>> {
 
   let chunks = Layout::default().direction(Direction::Vertical).constraints(constraints.as_ref()).split(frame);
   let text = Span::from(fl!("wait"));
-  let paragraph = Paragraph::new(text).alignment(Alignment::Center);
+  let paragraph = Paragraph::new(text).alignment(Alignment::Center).style(theme.of(&[Themed::Prompt]));
 
   f.render_widget(paragraph, chunks[0]);
   f.render_widget(block, container);

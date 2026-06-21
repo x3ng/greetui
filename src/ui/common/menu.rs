@@ -2,7 +2,7 @@ use std::{borrow::Cow, error::Error};
 
 use tui::{
   prelude::Rect,
-  style::{Modifier, Style},
+  style::Modifier,
   text::Span,
   widgets::{Block, BorderType, Borders, Paragraph},
 };
@@ -15,7 +15,7 @@ use crate::{
   App,
 };
 
-use super::style::Themed;
+use super::style::{Theme, Themed};
 
 pub trait MenuItem {
   fn format(&self) -> Cow<'_, str>;
@@ -61,8 +61,8 @@ where
       // Position items within the frame (inside the border and padding)
       let item_y = y + container_padding + index as u16;
       let frame = Rect::new(x + 2, item_y, width - 4, 1);
-      let option_text = self.get_option(name, index);
-      let option = Paragraph::new(option_text);
+      let option_text = self.get_option(theme, name, index);
+      let option = Paragraph::new(option_text).style(theme.of(&[Themed::Container]));
 
       f.render_widget(option, frame);
     }
@@ -73,12 +73,12 @@ where
     Ok((1, 1))
   }
 
-  fn get_option<'g, S>(&self, name: S, index: usize) -> Span<'g>
+  fn get_option<'g, S>(&self, theme: &Theme, name: S, index: usize) -> Span<'g>
   where
     S: Into<String>,
   {
     if self.selected == index {
-      Span::styled(name.into(), Style::default().add_modifier(Modifier::REVERSED))
+      Span::styled(name.into(), theme.of(&[Themed::Container]).add_modifier(Modifier::REVERSED))
     } else {
       Span::from(name.into())
     }

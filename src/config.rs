@@ -70,6 +70,10 @@ pub struct Config {
   #[arg(long, default_value = "")]
   pub bg_color: String,
 
+  /// Foreground (text) color. Auto-derived from bg-color if not set.
+  #[arg(long, default_value = "")]
+  pub fg_color: String,
+
   // Padding
   /// Padding inside the terminal area
   #[arg(long, default_value = "0")]

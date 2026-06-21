@@ -85,7 +85,7 @@ pub fn draw(app: &mut App, f: &mut Frame) -> Result<(u16, u16), Box<dyn Error>> 
   let username_label = if app.users.menu_enabled && app.auth.username.value.is_empty() {
     let prompt_text = Span::from(fl!("select_user"));
 
-    Paragraph::new(prompt_text).alignment(Alignment::Center)
+    Paragraph::new(prompt_text).alignment(Alignment::Center).style(theme.of(&[Themed::Prompt]))
   } else {
     let username_text = prompt_value(theme, Some(fl!("username")));
 
@@ -114,7 +114,7 @@ pub fn draw(app: &mut App, f: &mut Frame) -> Result<(u16, u16), Box<dyn Error>> 
 
       let answer_text = if app.working { Span::from(fl!("wait")) } else { prompt_value(theme, app.auth.prompt.as_ref()) };
 
-      let answer_label = Paragraph::new(answer_text);
+      let answer_label = Paragraph::new(answer_text).style(theme.of(&[Themed::Prompt]));
 
       if app.auth.mode == Mode::Password || app.auth.previous_mode == Mode::Password {
         f.render_widget(answer_label, chunks[ANSWER_INDEX + 1]);
@@ -150,7 +150,7 @@ pub fn draw(app: &mut App, f: &mut Frame) -> Result<(u16, u16), Box<dyn Error>> 
       }
 
       if let Some(message) = message {
-        let message = message.alignment(Alignment::Center);
+        let message = message.alignment(Alignment::Center).style(theme.of(&[Themed::Text]));
 
         f.render_widget(message, Rect::new(x, y + height, width, message_height));
       }

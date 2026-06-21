@@ -276,6 +276,24 @@ impl App {
       self.auth.secret_display = SecretDisplay::Character(cfg.asterisks_char.clone());
     }
 
+    // Background/foreground color → theme
+    use crate::ui::common::style::{parse_color, contrast_fg};
+    if !cfg.bg_color.is_empty() {
+      if let Some(bg) = parse_color(&cfg.bg_color) {
+        self.theme.set_container_bg(bg);
+
+        // If no explicit fg-color, derive a contrasting foreground
+        if cfg.fg_color.is_empty() {
+          self.theme.set_text_fg(contrast_fg(bg));
+        }
+      }
+    }
+    if !cfg.fg_color.is_empty() {
+      if let Some(fg) = parse_color(&cfg.fg_color) {
+        self.theme.set_text_fg(fg);
+      }
+    }
+
     // Default command session
     if let Some(ref cmd) = cfg.cmd {
       let envs = if cfg.env.is_empty() { None } else { Some(cfg.env.clone()) };

@@ -68,7 +68,7 @@ where
     numlock::set_numlock(true);
   }
 
-  ui::terminal::init(&app.config)?;
+  ui::terminal::init()?;
 
   let mut terminal = Terminal::new(backend)?;
 

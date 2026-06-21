@@ -23,7 +23,7 @@ use tui::{
   layout::{Alignment, Constraint, Direction, Layout},
   style::Modifier,
   text::{Line, Span},
-  widgets::Paragraph,
+  widgets::{Block, Paragraph},
   Frame as CrosstermFrame, Terminal,
 };
 use util::buttonize;
@@ -59,6 +59,11 @@ where
     let theme = &app.theme;
 
     let size = f.size();
+
+    // Full-screen background — ensures the entire terminal uses the theme's
+    // background color, not just the container area.
+    let bg_block = Block::default().style(theme.of(&[Themed::Container]));
+    f.render_widget(bg_block, size);
     let chunks = Layout::default()
       .constraints(
         [
