@@ -16,6 +16,16 @@ use crate::{
   App, Mode,
 };
 
+// Get mutable reference to current menu's (selected, len) based on mode.
+fn current_menu(app: &mut App) -> Option<(&mut usize, usize)> {
+  match app.auth.mode {
+    Mode::Users => Some((&mut app.users.menu.selected, app.users.menu.options.len())),
+    Mode::Sessions => Some((&mut app.sessions.menu.selected, app.sessions.menu.options.len())),
+    Mode::Power => Some((&mut app.power.menu.selected, app.power.menu.options.len())),
+    _ => None,
+  }
+}
+
 // Act on keyboard events.
 pub async fn handle(app: Arc<RwLock<App>>, input: KeyEvent, ipc: Ipc) -> Result<(), Box<dyn Error>> {
   let mut app = app.write().await;
@@ -129,44 +139,18 @@ pub async fn handle(app: Arc<RwLock<App>>, input: KeyEvent, ipc: Ipc) -> Result<
       app.auth.mode = Mode::Power;
     }
 
-    // Handle moving up in menus.
+    // Handle moving up in menus (Up arrow or k).
     KeyEvent { code: KeyCode::Up, .. } => {
-      if let Mode::Users = app.auth.mode {
-        if app.users.menu.selected > 0 {
-          app.users.menu.selected -= 1;
-        }
-      }
-
-      if let Mode::Sessions = app.auth.mode {
-        if app.sessions.menu.selected > 0 {
-          app.sessions.menu.selected -= 1;
-        }
-      }
-
-      if let Mode::Power = app.auth.mode {
-        if app.power.menu.selected > 0 {
-          app.power.menu.selected -= 1;
-        }
+      if let Some((selected, _)) = current_menu(&mut app) {
+        *selected = selected.saturating_sub(1);
       }
     }
 
-    // Handle moving down in menus.
+    // Handle moving down in menus (Down arrow or j).
     KeyEvent { code: KeyCode::Down, .. } => {
-      if let Mode::Users = app.auth.mode {
-        if app.users.menu.selected < app.users.menu.options.len().saturating_sub(1) {
-          app.users.menu.selected += 1;
-        }
-      }
-
-      if let Mode::Sessions = app.auth.mode {
-        if app.sessions.menu.selected < app.sessions.menu.options.len().saturating_sub(1) {
-          app.sessions.menu.selected += 1;
-        }
-      }
-
-      if let Mode::Power = app.auth.mode {
-        if app.power.menu.selected < app.power.menu.options.len().saturating_sub(1) {
-          app.power.menu.selected += 1;
+      if let Some((selected, len)) = current_menu(&mut app) {
+        if *selected < len.saturating_sub(1) {
+          *selected += 1;
         }
       }
     }
@@ -194,11 +178,30 @@ pub async fn handle(app: Arc<RwLock<App>>, input: KeyEvent, ipc: Ipc) -> Result<
       ..
     } => app.auth.cursor_offset = 0,
 
-    // Tab should validate the username entry (same as Enter).
+    // Tab: validate username, or cycle down in menus.
     KeyEvent { code: KeyCode::Tab, .. } => match app.auth.mode {
       Mode::Username if !app.auth.username.value.is_empty() => validate_username(&mut app, &ipc).await,
-      _ => {}
+      _ => {
+        if let Some((selected, len)) = current_menu(&mut app) {
+          if *selected < len.saturating_sub(1) {
+            *selected += 1;
+          } else {
+            *selected = 0; // Wrap around to top
+          }
+        }
+      }
     },
+
+    // BackTab (Shift+Tab): cycle up in menus.
+    KeyEvent { code: KeyCode::BackTab, .. } => {
+      if let Some((selected, len)) = current_menu(&mut app) {
+        if *selected > 0 {
+          *selected -= 1;
+        } else {
+          *selected = len.saturating_sub(1); // Wrap around to bottom
+        }
+      }
+    }
 
     // Enter validates the current entry, depending on the active mode.
     KeyEvent { code: KeyCode::Enter, .. } => match app.auth.mode {
